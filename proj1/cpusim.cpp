@@ -8,7 +8,6 @@
 #include <string>
 
 #include "cpu.h"
-#include "debugging.hpp"
 
 using namespace std;
 
@@ -24,38 +23,59 @@ int main(int argc, char* argv[]) {
 
     vector<char> bytes;
     int curr;
-    while (infile >> curr) {
-        bytes.push_back((char) curr);
-    }
+    while (infile >> curr) { bytes.push_back((char)curr); }
 
     vector<bitset<32>> instructions(bytes.size() / 4);
     for (int i = 0; i < bytes.size(); i += 4) {
         int at = 0;
         for (int j = 0; j < 4; j++) {
             char b = bytes[i + j];
-            for (int k = 0; k < 8; k++) {
-                instructions[i / 4].set(at++, b & (1 << k));
-            }
+            for (int k = 0; k < 8; k++) { instructions[i / 4].set(at++, b & (1 << k)); }
         }
     }
 
-    /*
-     * Instantiate your CPU object here.  CPU class is the main class in this project
-     * that defines different components of the processor. CPU class also has different
-     * functions for each stage (e.g., fetching an instruction, decoding, etc.).
-     */
-
     CPU cpu(instructions);
-
-    bool done = true;
     // processor's main loop. Each iteration is equal to one clock cycle.
     while (cpu.read_pc() < instructions.size()) {
-        cpu.inc_pc();
+        int curr_pc = cpu.read_pc();
+        Control ctrl = cpu.ctrl_bits();
+        int imm = cpu.imm();
+
+        vector<int> reg = cpu.reg_vals();  // rs1, rs2, & rd respectively
+        int rs1 = cpu.read_reg(reg[0]);
+        int rs2 = cpu.read_reg(reg[1]);
+
+        int arg1 = rs1;
+        int arg2 = ctrl.alu_src ? imm : rs2;
+        int alu_res = alu(arg1, arg2, cpu.alu_ctrl());
+
+        int star_res = 0;
+        if (ctrl.mem_read) { star_res = cpu.read_mem(alu_res, cpu.mem_amt()); }
+        if (ctrl.mem_write) { cpu.set_mem(rs2, alu_res, cpu.mem_amt()); }
+
+        if (ctrl.reg_write) {
+            int val = 0;
+            if (ctrl.rd_take == RD_ALU) {
+                val = alu_res;
+            } else if (ctrl.rd_take == RD_MEM) {
+                val = star_res;
+            } else if (ctrl.rd_take == RD_PC4) {
+                val = curr_pc * 4 + 4;
+            }
+            cpu.set_reg(reg[2], val);
+        }
+
+        vector<int> pc_cand{curr_pc + 1, curr_pc + imm / 4, alu_res / 4};
+        if (ctrl.pc_take == PC_INC) {
+            cpu.set_pc(curr_pc + 1);
+        } else if (ctrl.pc_take == PC_BNE) {
+            int val = alu_res != 0 ? curr_pc + imm / 4 : curr_pc + 1;
+            cpu.set_pc(val);
+        } else if (ctrl.pc_take == PC_JMP) {
+            cpu.set_pc(alu_res / 4);
+        }
     }
 
-    int a0 = 0;
-    int a1 = 0;
-    // print the results (you should replace a0 and a1 with your own variables that
-    // point to a0 and a1)
-    printf("(%i, %i)\n", a0, a1);
+    // a0 & a1 correspond to x10 & x11 respectively
+    printf("(%i,%i)\n", cpu.read_reg(10), cpu.read_reg(11));
 }
