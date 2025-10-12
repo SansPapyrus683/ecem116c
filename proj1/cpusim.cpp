@@ -7,51 +7,37 @@
 #include <sstream>
 #include <string>
 
-#include "CPU.h"
+#include "cpu.h"
+#include "debugging.hpp"
+
 using namespace std;
 
 int main(int argc, char* argv[]) {
     if (argc < 2) { return -1; }
-
-    /*
-     * This is the front end of your project.
-     * You need to first read the instructions that are stored in a file and load them
-     * into an instruction memory.
-     */
-
-    /*
-     * Each cell should store 1 byte. You can define the memory either dynamically, or
-     * define it as a fixed size with size 4KB (i.e., 4096 lines). Each instruction is
-     * 32 bits (i.e., 4 lines, saved in little-endian mode). Each line in the input file
-     * is stored as an hex and is 1 byte (each four lines are one instruction). You need
-     * to read the file line by line and store it into the memory. You may need a
-     * mechanism to convert these values to bits so that you can read opcodes, operands,
-     * etc.
-     */
 
     ifstream infile(argv[1]);  // open the file
     if (!(infile.is_open() && infile.good())) {
         cout << "error opening file" << endl;
         return 1;
     }
+    infile >> hex;
 
-    char instr[4096];
-    string line;
-    int i = 0;
-    while (infile) {
-        infile >> line;
-        stringstream line2(line);
-        char x;
-        line2 >> x;
-        instr[i] = x;  // be careful about hex
-        i++;
-        line2 >> x;
-        instr[i] = x;  // be careful about hex
-        cout << instr[i] << endl;
-        i++;
+    vector<char> bytes;
+    int curr;
+    while (infile >> curr) {
+        bytes.push_back((char) curr);
     }
 
-    int maxPC = i / 4;
+    vector<bitset<32>> instructions(bytes.size() / 4);
+    for (int i = 0; i < bytes.size(); i += 4) {
+        int at = 0;
+        for (int j = 0; j < 4; j++) {
+            char b = bytes[i + j];
+            for (int k = 0; k < 8; k++) {
+                instructions[i / 4].set(at++, b & (1 << k));
+            }
+        }
+    }
 
     /*
      * Instantiate your CPU object here.  CPU class is the main class in this project
@@ -59,18 +45,12 @@ int main(int argc, char* argv[]) {
      * functions for each stage (e.g., fetching an instruction, decoding, etc.).
      */
 
-    CPU myCPU;
+    CPU cpu(instructions);
 
     bool done = true;
     // processor's main loop. Each iteration is equal to one clock cycle.
-    while (done) {
-        // fetch
-
-        // decode
-
-        // ...
-        myCPU.inc_pc();
-        if (myCPU.read_pc() > maxPC) { break; }
+    while (cpu.read_pc() < instructions.size()) {
+        cpu.inc_pc();
     }
 
     int a0 = 0;

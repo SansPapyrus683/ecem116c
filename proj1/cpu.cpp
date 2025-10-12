@@ -1,6 +1,10 @@
-#include "CPU.h"
+#include <vector>
 
-CPU::CPU() {
+#include "cpu.h"
+
+using std::vector;
+
+CPU::CPU(const vector<bitset<32>>& instructions) : instr(instructions) {
     for (int i = 0; i < 4096; i++) { mem[i] = (0); }
 }
 

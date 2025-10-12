@@ -4,16 +4,18 @@
 #include <bitset>
 #include <iostream>
 #include <string>
+#include <vector>
 
 using namespace std;
 
 class CPU {
    private:
-    int mem[4096];  // data memory byte addressable in little endian fashion;
+    int mem[1 << 12];  // data memory byte addressable in little endian fashion;
+    const vector<bitset<32>>& instr;
     unsigned long pc = 0;
 
    public:
-    CPU();
+    CPU(const vector<bitset<32>>& instructions);
     unsigned long read_pc() const;
     void inc_pc();
 };

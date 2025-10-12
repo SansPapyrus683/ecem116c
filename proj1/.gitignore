@@ -1,2 +1,5 @@
 cpusim
 .vscode/
+
+# smth i use for printing out vectors n stuff
+debugging.hpp
