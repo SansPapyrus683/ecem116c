@@ -26,5 +26,3 @@
 (Values are in signed decimal)
 # a0 = 0
 # a1 = 303305280
-
-
