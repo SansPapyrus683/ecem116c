@@ -24,7 +24,7 @@ int alu(int arg1, int arg2, AluCtrl op) {
         case AluCtrl::Second:
             return arg2;
     }
-    return 0;
+    return 0;  // unreachable
 }
 
 CPU::CPU(const vector<bitset<32>>& instructions) : instrs(instructions) {}
@@ -32,6 +32,30 @@ CPU::CPU(const vector<bitset<32>>& instructions) : instrs(instructions) {}
 unsigned long CPU::read_pc() const { return pc; }
 
 void CPU::set_pc(int new_pc) { pc = new_pc; }
+
+int CPU::read_reg(int r) const { return reg.at(r); }
+
+void CPU::set_reg(int r, int v) {
+    assert(0 <= r && r < 32);
+    // set everything except for x0 which is hardwired to 0
+    if (r > 0) { reg[r] = v; }
+}
+
+int CPU::read_mem(int addr, int bytes) const {
+    uint32_t res = 0;
+    for (int i = 0; i < bytes; i++) {
+        uint32_t val = (unsigned int)(unsigned char)mem[addr++];
+        res += val << (i * 8);
+    }
+    return res;  // neither of the load operations sign extend
+}
+
+void CPU::set_mem(int word, int addr, int bytes) {
+    for (int i = 0; i < bytes; i++) {
+        mem[addr++] = word & 0xff;
+        word >>= 8;
+    }
+}
 
 Control CPU::ctrl_bits() const {
     int opcode = 0;
@@ -143,27 +167,4 @@ vector<int> CPU::reg_vals() const {
         for (int j = start; j <= end; j++) { res[i] |= instrs[pc][j] << (j - start); }
     }
     return res;
-}
-
-int CPU::read_reg(int r) const { return reg.at(r); }
-
-void CPU::set_reg(int r, int v) {
-    assert(0 <= r && r < 32);
-    if (r > 0) { reg[r] = v; }
-}
-
-int CPU::read_mem(int addr, int bytes) const {
-    uint32_t res = 0;
-    for (int i = 0; i < bytes; i++) {
-        uint32_t val = (unsigned int)(unsigned char)mem[addr++];
-        res += val << (i * 8);
-    }
-    return res;
-}
-
-void CPU::set_mem(int word, int addr, int bytes) {
-    for (int i = 0; i < bytes; i++) {
-        mem[addr++] = word & 0xff;
-        word >>= 8;
-    }
 }
