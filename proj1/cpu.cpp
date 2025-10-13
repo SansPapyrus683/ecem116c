@@ -2,27 +2,26 @@
 
 #include <cassert>
 #include <cstdint>
-#include <iostream>
 #include <vector>
 
 using std::pair;
 using std::vector;
 
-int alu(int arg1, int arg2, int op) {
+int alu(int arg1, int arg2, AluCtrl op) {
     switch (op) {
-        case ALU_ADD:
+        case AluCtrl::Add:
             return arg1 + arg2;
-        case ALU_SUB:
+        case AluCtrl::Sub:
             return arg1 - arg2;
-        case ALU_OR:
+        case AluCtrl::Or:
             return arg1 | arg2;
-        case ALU_AND:
+        case AluCtrl::And:
             return arg1 & arg2;
-        case ALU_SLT:
+        case AluCtrl::SLT:
             return (uint32_t)arg1 < (uint32_t)arg2;
-        case ALU_SRA:
+        case AluCtrl::SRA:
             return arg1 >> arg2;
-        case ALU_2ND:
+        case AluCtrl::Second:
             return arg2;
     }
     return 0;
@@ -40,47 +39,47 @@ Control CPU::ctrl_bits() const {
 
     switch (opcode) {
         case 0b0110011:  // r
-            return {PC_INC, 0, RD_ALU, CTRL_ALU_R, 0, 0, 1};
+            return {PcOp::Inc, 0, RdTake::Alu, AluOp::R, 0, 0, 1};
         case 0b0110111:  // u
-            return {PC_INC, 0, RD_ALU, CTRL_ALU_2ND, 0, 1, 1};
+            return {PcOp::Inc, 0, RdTake::Alu, AluOp::Second, 0, 1, 1};
         case 0b0010011:  // i
-            return {PC_INC, 0, RD_ALU, CTRL_ALU_I, 0, 1, 1};
+            return {PcOp::Inc, 0, RdTake::Alu, AluOp::I, 0, 1, 1};
         case 0b0000011:  // load stuff (i)
-            return {PC_INC, 1, RD_MEM, CTRL_ALU_ADD, 0, 1, 1};
+            return {PcOp::Inc, 1, RdTake::Mem, AluOp::Add, 0, 1, 1};
         case 0b0100011:  // s
-            return {PC_INC, 0, RD_ALU, CTRL_ALU_ADD, 1, 1, 0};
+            return {PcOp::Inc, 0, RdTake::Alu, AluOp::Add, 1, 1, 0};
         case 0b1100011:  // b
-            return {PC_BNE, 0, RD_ALU, CTRL_ALU_SUB, 0, 0, 0};
+            return {PcOp::BNE, 0, RdTake::Alu, AluOp::Sub, 0, 0, 0};
         case 0b1100111:  // jalr (i)
-            return {PC_JMP, 0, RD_PC4, CTRL_ALU_ADD, 0, 1, 1};
+            return {PcOp::Jmp, 0, RdTake::Pc4, AluOp::Add, 0, 1, 1};
     }
     assert("bad opcode" && 0);
 }
 
-int CPU::alu_ctrl() const {
+AluCtrl CPU::alu_ctrl() const {
     int funct3 = 0;
     for (int i = 0; i < 3; i++) { funct3 |= instrs[pc][12 + i] << i; }
 
-    bitset<3> alu_op = ctrl_bits().alu_op;
-    if (alu_op == CTRL_ALU_ADD) {
-        return ALU_ADD;
-    } else if (alu_op == CTRL_ALU_SUB) {
-        return ALU_SUB;
-    } else if (alu_op == CTRL_ALU_2ND) {
-        return ALU_2ND;
+    AluOp alu_op = ctrl_bits().alu_op;
+    if (alu_op == AluOp::Add) {
+        return AluCtrl::Add;
+    } else if (alu_op == AluOp::Sub) {
+        return AluCtrl::Sub;
+    } else if (alu_op == AluOp::Second) {
+        return AluCtrl::Second;
     }
 
     switch (funct3) {
         case 0x0:  // add or sub since we only have addi and sub
-            return alu_op == CTRL_ALU_R ? ALU_SUB : ALU_ADD;
-        case 0x3:  // sltu
-            return ALU_SLT;
-        case 0x5:  // sra
-            return ALU_SRA;
-        case 0x6:  // or
-            return ALU_OR;
-        case 0x7:  // and
-            return ALU_AND;
+            return alu_op == AluOp::R ? AluCtrl::Sub : AluCtrl::Add;
+        case 0x3:
+            return AluCtrl::SLT;
+        case 0x5:
+            return AluCtrl::SRA;
+        case 0x6:
+            return AluCtrl::Or;
+        case 0x7:
+            return AluCtrl::And;
     }
     assert("invalid stuff for alu op" && false);
 }

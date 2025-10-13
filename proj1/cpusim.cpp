@@ -55,25 +55,34 @@ int main(int argc, char* argv[]) {
 
         if (ctrl.reg_write) {
             int val = 0;
-            if (ctrl.rd_take == RD_ALU) {
-                val = alu_res;
-            } else if (ctrl.rd_take == RD_MEM) {
-                val = star_res;
-            } else if (ctrl.rd_take == RD_PC4) {
-                val = curr_pc * 4 + 4;
+            switch (ctrl.rd_take) {
+                case RdTake::Alu:
+                    val = alu_res;
+                    break;
+                case RdTake::Mem:
+                    val = star_res;
+                    break;
+                case RdTake::Pc4:
+                    val = curr_pc * 4 + 4;
+                    break;
             }
             cpu.set_reg(reg[2], val);
         }
 
         vector<int> pc_cand{curr_pc + 1, curr_pc + imm / 4, alu_res / 4};
-        if (ctrl.pc_take == PC_INC) {
-            cpu.set_pc(curr_pc + 1);
-        } else if (ctrl.pc_take == PC_BNE) {
-            int val = alu_res != 0 ? curr_pc + imm / 4 : curr_pc + 1;
-            cpu.set_pc(val);
-        } else if (ctrl.pc_take == PC_JMP) {
-            cpu.set_pc(alu_res / 4);
+        int next_pc = 0;
+        switch (ctrl.pc_take) {
+            case PcOp::Inc:
+                next_pc = curr_pc + 1;
+                break;
+            case PcOp::BNE:
+                next_pc = alu_res != 0 ? curr_pc + imm / 4 : curr_pc + 1;
+                break;
+            case PcOp::Jmp:
+                next_pc = alu_res / 4;
+                break;
         }
+        cpu.set_pc(next_pc);
     }
 
     // a0 & a1 correspond to x10 & x11 respectively
