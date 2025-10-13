@@ -3,9 +3,11 @@
 #include <cassert>
 #include <cstdint>
 #include <vector>
+#include <bitset>
 
 using std::pair;
 using std::vector;
+using std::bitset;
 
 int alu(int arg1, int arg2, AluCtrl op) {
     switch (op) {

@@ -1,12 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
-
 #include <bitset>
 #include <iostream>
 #include <string>
 #include <vector>
 
-using namespace std;
+using std::vector;
 
 /** the operation that's actually fed to the alu */
 enum class AluCtrl { Add, Sub, Or, And, SLT, SRA, Second };
@@ -35,12 +32,12 @@ struct Control {
 class CPU {
    private:
     char mem[1 << 20] = {0};  // data memory byte addressable in little endian fashion
-    const vector<bitset<32>>& instrs;
+    const vector<std::bitset<32>>& instrs;
     unsigned long pc = 0;
 
    public:
     vector<int> reg = vector<int>(1 << 5);  // ?? why do i have to init it like this??
-    CPU(const vector<bitset<32>>& instructions);
+    CPU(const vector<std::bitset<32>>& instructions);
     unsigned long read_pc() const;
     void set_pc(int new_pc);
 
