@@ -14,13 +14,14 @@ typedef struct _proc_inst_t {
     uint32_t instruction_address;
     int32_t op_code;
     int32_t src_reg[2];
+    int32_t prev_w[2];
     int32_t dest_reg;
 
     // stack overflow said i could do this
     mutable bool rs1_ready;
     mutable bool rs2_ready;
-    mutable bool rd_ready;
     mutable bool running = false;
+
     int tag;
 } proc_inst_t;
 

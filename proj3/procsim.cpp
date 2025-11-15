@@ -5,8 +5,9 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <algorithm>
 
-#include "debugging.hpp"
+// #include "debugging.hpp"
 
 using namespace std;
 
@@ -14,7 +15,7 @@ int max_res;
 int rs_sz;
 int fetch_num;
 
-int cyc = 1;
+int cyc = 0;
 int tag = 1;
 int last_tag = -1;
 int done_amt = 0;
@@ -28,9 +29,11 @@ struct TraceInfo {
 };
 vector<TraceInfo> traces;
 
+map<int, int> last_write;
 vector<proc_inst_t> fetched;
 
 deque<proc_inst_t> dispatch_q;
+vector<size_t> size_hist;
 
 map<int, set<int>> to_write;
 set<proc_inst_t> rs;
@@ -72,6 +75,11 @@ void fetch() {
         if (read_instruction(&to_push)) {
             to_push.tag = tag++;
             if (to_push.op_code == -1) { to_push.op_code = 1; }
+
+            to_push.prev_w[0] = last_write[to_push.src_reg[0]];
+            to_push.prev_w[1] = last_write[to_push.src_reg[1]];
+            if (to_push.dest_reg != -1) { last_write[to_push.dest_reg] = tag - 1; }
+
             fetched.push_back(to_push);
             traces.push_back({cyc, -1, -1, -1, -1});
         } else {
@@ -85,6 +93,7 @@ void dispatch() {
         dispatch_q.push_back(pi);
         traces[pi.tag - 1].disp = cyc;
     }
+    size_hist.push_back(dispatch_q.size());
     fetched.clear();
 }
 
@@ -94,16 +103,11 @@ void schedule() {
         dispatch_q.pop_front();
         traces[i.tag - 1].sched = cyc;
 
-        // just some neat shorthands
-        int rd = i.dest_reg;
-        int rs1 = i.src_reg[0];
-        int rs2 = i.src_reg[1];
-
         // no need to check if reg is -1 bc that set is guaranteed to be empty
-        i.rs1_ready = to_write[rs1].empty();
-        i.rs2_ready = to_write[rs2].empty();
+        i.rs1_ready = !to_write[i.src_reg[0]].count(i.prev_w[0]);
+        i.rs2_ready = !to_write[i.src_reg[1]].count(i.prev_w[1]);
 
-        if (rd != -1) { to_write[rd].insert(i.tag); }
+        if (i.dest_reg != -1) { to_write[i.dest_reg].insert(i.tag); }
 
         rs.insert(i);
     }
@@ -112,7 +116,7 @@ void schedule() {
 void execute() {
     for (const proc_inst_t& pi : rs) {
         if (pi.running) { continue; }
-        
+
         bool reg_good = pi.rs1_ready && pi.rs2_ready;
         if (reg_good && fu_free_num[pi.op_code] > 0) {
             fu_free_num[pi.op_code]--;
@@ -144,17 +148,12 @@ void state_upd() {
  */
 void run_proc(proc_stats_t* p_stats) {
     while (last_tag == -1 || done_amt < last_tag) {
-        // for (int i = 0; i < 100; i++) {
-        // cout << cyc << endl;
-        // cout << "state update" << endl;
+        cyc++;
+
         state_upd();
-        // cout << "executing" << endl;
         execute();
-        // cout << "schedule" << endl;
         schedule();
-        // cout << "dispatching" << endl;
         dispatch();
-        // cout << "fetching" << endl;
         fetch();
 
         // why is this done at the end bro
@@ -162,16 +161,12 @@ void run_proc(proc_stats_t* p_stats) {
 
         for (const proc_inst_t& i : completed) { to_write[i.dest_reg].erase(i.tag); }
         for (const proc_inst_t& i : rs) {
-            int rs1 = i.src_reg[0];
-            i.rs1_ready = to_write[rs1].empty() || i.tag <= *to_write[rs1].begin();
-            int rs2 = i.src_reg[1];
-            i.rs2_ready = to_write[rs2].empty() || i.tag <= *to_write[rs2].begin();
+            i.rs1_ready = !to_write[i.src_reg[0]].count(i.prev_w[0]);
+            i.rs2_ready = !to_write[i.src_reg[1]].count(i.prev_w[1]);
         }
 
         to_delete = completed;
         completed = {};
-
-        cyc++;
     }
 
     printf("INST\tFETCH\tDISP\tSCHED\tEXEC\tSTATE\n");
@@ -190,4 +185,16 @@ void run_proc(proc_stats_t* p_stats) {
  *
  * @p_stats Pointer to the statistics structure
  */
-void complete_proc(proc_stats_t* p_stats) { p_stats->cycle_count = cyc; }
+void complete_proc(proc_stats_t* p_stats) {
+    long long dispatch_avg = 0;
+    for (size_t s : size_hist) {
+        dispatch_avg += s;
+    }
+
+    p_stats->retired_instruction = last_tag;
+    p_stats->max_disp_size = *max_element(size_hist.begin(), size_hist.end());
+    p_stats->avg_disp_size = (double)dispatch_avg / cyc;
+    p_stats->avg_inst_fired = (double)last_tag / cyc;
+    p_stats->avg_inst_retired = (double)last_tag / cyc;
+    p_stats->cycle_count = cyc;
+}
