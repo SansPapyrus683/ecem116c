@@ -33,10 +33,9 @@ vector<proc_inst_t> fetched;
 deque<proc_inst_t> dispatch_q;
 
 map<int, set<int>> to_write;
-map<int, set<int>> to_read;
 set<proc_inst_t> rs;
 
-vector<set<pair<int, proc_inst_t>>> fus(3);
+deque<proc_inst_t> execing;
 vector<int> fu_free_num;
 
 vector<proc_inst_t> to_delete;
@@ -103,10 +102,7 @@ void schedule() {
         // no need to check if reg is -1 bc that set is guaranteed to be empty
         i.rs1_ready = to_write[rs1].empty();
         i.rs2_ready = to_write[rs2].empty();
-        i.rd_ready = to_read[rd].empty();
 
-        if (rs1 != -1) { to_read[rs1].insert(i.tag); }
-        if (rs2 != -1) { to_read[rs2].insert(i.tag); }
         if (rd != -1) { to_write[rd].insert(i.tag); }
 
         rs.insert(i);
@@ -116,14 +112,11 @@ void schedule() {
 void execute() {
     for (const proc_inst_t& pi : rs) {
         if (pi.running) { continue; }
-        set<pair<int, proc_inst_t>>& fu = fus[pi.op_code];
-        // cout << pi << endl;
-        // cout << pi.rs1_ready << ' ' << pi.rs2_ready << ' ' << to_write[pi.src_reg[1]]
-        //      << endl;
-        // cout << fu.size() << endl;
-        bool reg_good = pi.rs1_ready && pi.rs2_ready && pi.rd_ready;
-        if (reg_good && (int)fu.size() < fu_free_num[pi.op_code]) {
-            fu.insert({cyc, pi});
+        
+        bool reg_good = pi.rs1_ready && pi.rs2_ready;
+        if (reg_good && fu_free_num[pi.op_code] > 0) {
+            fu_free_num[pi.op_code]--;
+            execing.push_back(pi);
             traces[pi.tag - 1].exec = cyc;
             pi.running = true;
         }
@@ -131,38 +124,14 @@ void execute() {
 }
 
 void state_upd() {
-    for (int i = 0; i < max_res; i++) {
-        // there's almost certainly a better way to do this i just cba
-        pair<pair<int, proc_inst_t>, int> best{{INT32_MAX, {}}, 0};
-        for (int i = 0; i < (int)fus.size(); i++) {
-            if (!fus[i].empty()) { best = min(best, {*fus[i].begin(), i}); }
-        }
+    for (int i = 0; i < max_res && !execing.empty(); i++) {
+        proc_inst_t done = execing.front();
+        execing.pop_front();
 
-        if (best.first.first == INT32_MAX) { break; }
-
-        auto it = fus[best.second].begin();
-        fus[best.second].erase(it);
-
-        proc_inst_t done = it->second;
+        fu_free_num[done.op_code]++;
         traces[done.tag - 1].state = cyc;
         completed.push_back(done);
         done_amt++;
-
-        // nothing wrong w/ erasing an element from an empty set :clueless:
-        to_write[done.dest_reg].erase(done.tag);
-        to_read[done.src_reg[0]].erase(done.tag);
-        to_read[done.src_reg[1]].erase(done.tag);
-    }
-
-    for (const proc_inst_t& i : rs) {
-        int rs1 = i.src_reg[0];
-        i.rs1_ready = to_write[rs1].empty() || i.tag <= *to_write[rs1].begin();
-
-        int rs2 = i.src_reg[1];
-        i.rs2_ready = to_write[rs2].empty() || i.tag <= *to_write[rs2].begin();
-    
-        int rd = i.dest_reg;
-        i.rd_ready = to_read[rd].empty() || i.tag <= *to_read[rd].begin();
     }
 }
 
@@ -189,7 +158,16 @@ void run_proc(proc_stats_t* p_stats) {
         fetch();
 
         // why is this done at the end bro
-        for (const proc_inst_t& i : to_delete) { rs.erase(i);}
+        for (const proc_inst_t& i : to_delete) { rs.erase(i); }
+
+        for (const proc_inst_t& i : completed) { to_write[i.dest_reg].erase(i.tag); }
+        for (const proc_inst_t& i : rs) {
+            int rs1 = i.src_reg[0];
+            i.rs1_ready = to_write[rs1].empty() || i.tag <= *to_write[rs1].begin();
+            int rs2 = i.src_reg[1];
+            i.rs2_ready = to_write[rs2].empty() || i.tag <= *to_write[rs2].begin();
+        }
+
         to_delete = completed;
         completed = {};
 
