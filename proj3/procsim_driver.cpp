@@ -7,9 +7,9 @@
 
 #include "procsim.hpp"
 
-FILE* inFile = stdin;
+FILE* in_file = stdin;
 
-void print_help_and_exit(void) {
+void print_help_and_exit() {
     printf("procsim [OPTIONS]\n");
     printf("  -j k0\t\tNumber of k0 FUs\n");
     printf("  -k k1\t\tNumber of k1 FUs\n");
@@ -21,11 +21,7 @@ void print_help_and_exit(void) {
     exit(0);
 }
 
-//
-// read_instruction
-//
-//  returns true if an instruction was read successfully
-//
+/** @returns true if an instruction was read successfully */
 bool read_instruction(proc_inst_t* p_inst) {
     int ret;
 
@@ -52,7 +48,7 @@ int main(int argc, char* argv[]) {
     int k2 = DEFAULT_K2;
     int r = DEFAULT_R;
 
-    /* Read arguments */
+    // Read arguments
     while (-1 != (opt = getopt(argc, argv, "r:i:j:k:l:f:h"))) {
         switch (opt) {
             case 'r':
@@ -71,14 +67,14 @@ int main(int argc, char* argv[]) {
                 f = atoi(optarg);
                 break;
             case 'i':
-                inFile = fopen(optarg, "r");
-                if (inFile == NULL) {
+                in_file = fopen(optarg, "r");
+                if (in_file == NULL) {
                     fprintf(stderr, "Failed to open %s for reading\n", optarg);
                     print_help_and_exit();
                 }
                 break;
             case 'h':
-                /* Fall through */
+                // Fall through
             default:
                 print_help_and_exit();
                 break;
@@ -93,17 +89,17 @@ int main(int argc, char* argv[]) {
     printf("F: %i\n", f);
     printf("\n");
 
-    /* Setup the processor */
+    // Setup the processor
     setup_proc(r, k0, k1, k2, f);
 
-    /* Setup statistics */
+    // Setup statistics
     proc_stats_t stats;
     memset(&stats, 0, sizeof(proc_stats_t));
 
-    /* Run the processor */
+    // Run the processor
     run_proc(&stats);
 
-    /* Finalize stats */
+    // Finalize stats
     complete_proc(&stats);
 
     // Comment this out when submitting to gradescope

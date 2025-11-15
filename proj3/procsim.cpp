@@ -7,8 +7,6 @@
 #include <vector>
 #include <algorithm>
 
-// #include "debugging.hpp"
-
 using namespace std;
 
 int max_res;
@@ -46,15 +44,9 @@ vector<proc_inst_t> completed;
 
 bool operator<(const proc_inst_t& i1, const proc_inst_t& i2) { return i1.tag < i2.tag; }
 
-ostream& operator<<(ostream& o, const proc_inst_t& i) {
-    return o << "(#" << i.tag << ", " << i.op_code << ": " << i.dest_reg << " <- "
-             << i.src_reg[0] << ", " << i.src_reg[1] << ')';
-}
-
 /**
  * Subroutine for initializing the processor. You many add and initialize any global or
  * heap variables as needed.
- * XXX: You're responsible for completing this routine
  *
  * @r ROB size
  * @k0 Number of k0 FUs
@@ -181,7 +173,6 @@ void run_proc(proc_stats_t* p_stats) {
 /**
  * Subroutine for cleaning up any outstanding instructions and calculating overall
  * statistics such as average IPC, average fire rate etc.
- * XXX: You're responsible for completing this routine
  *
  * @p_stats Pointer to the statistics structure
  */
