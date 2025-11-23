@@ -4,10 +4,10 @@
 #include <cstdint>
 #include <cstdio>
 
-#define DEFAULT_K0 1
+#define DEFAULT_K0 3
 #define DEFAULT_K1 2
-#define DEFAULT_K2 3
-#define DEFAULT_R 8
+#define DEFAULT_K2 1
+#define DEFAULT_R 2
 #define DEFAULT_F 4
 
 typedef struct _proc_inst_t {
